@@ -1,7 +1,8 @@
 #pragma once
+#include <cmath>
 
 struct mat4 {
-    float m[16]; // Данные хранятся столбцами
+    float m[16]; // Данные хранятся столбцами (Column-major)
 
     mat4() { identity(); }
 
@@ -10,7 +11,6 @@ struct mat4 {
         m[0] = 1.0f; m[5] = 1.0f; m[10] = 1.0f; m[15] = 1.0f;
     }
 
-    // Умножение матриц (A * B)
     mat4 operator*(const mat4& b) const {
         mat4 res;
         for (int row = 0; row < 4; ++row) {
@@ -25,28 +25,28 @@ struct mat4 {
         return res;
     }
 
-    static mat4 translation(float x, float y) {
+    static mat4 translation(float x, float y, float z = 0.0f) {
         mat4 res; res.identity();
-        res.m[12] = x; res.m[13] = y; // Последний столбец
+        res.m[12] = x; res.m[13] = y; res.m[14] = z;
         return res;
     }
 
     static mat4 rotationZ(float angle_rad) {
         mat4 res; res.identity();
-        float s = sin(angle_rad);
-        float c = cos(angle_rad);
+        float s = sinf(angle_rad);
+        float c = cosf(angle_rad);
         res.m[0] = c;  res.m[1] = s;
         res.m[4] = -s; res.m[5] = c;
         return res;
     }
 
-    static mat4 scale(float sx, float sy) {
+    // Теперь принимает 2 или 3 аргумента благодаря значению по умолчанию
+    static mat4 scale(float sx, float sy, float sz = 1.0f) {
         mat4 res; res.identity();
-        res.m[0] = sx; res.m[5] = sy;
+        res.m[0] = sx; res.m[5] = sy; res.m[10] = sz;
         return res;
     }
 
-    // Ортографическая проекция для 2D (экран в пикселях)
     static mat4 ortho(float left, float right, float bottom, float top) {
         mat4 res; res.identity();
         res.m[0] = 2.0f / (right - left);

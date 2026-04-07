@@ -9,6 +9,7 @@ public:
     v2 position = {0, 0};
     float rotation = 0;
     v2 scale = {1, 1};
+    v2 sprite_size = {128, 128};
 
     Transform* parent = nullptr;
     std::vector<Transform*> children;
