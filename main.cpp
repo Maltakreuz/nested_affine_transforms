@@ -10,37 +10,32 @@
 using namespace lvichki;
 using namespace std;
 
+
+Transform* create_transform(const char* texture_path, const v2& pos, const v2& scale = {1.0f, 1.0f}, float rotation = 0.0f) {
+    Transform* t = new Transform();
+    t->position = pos;
+    t->scale = scale;
+    t->texture = load_texture_opengl(texture_path);
+    t->rotation = rotation;
+    return t;
+}
+
+Transform* create_transforms() {
+    Transform* parent = create_transform("lionessy_face.png", {960, 540}, {1.8f, 1.8f});
+    Transform* child = create_transform("lionessy_face.png", {200, 0}, {1.5f, 1.5f});
+    child->set_parent(parent);
+    return parent;
+}
+
 int main(int, char**) {
     Game game;
     print_all_gpu_info(); // Раскомментируй, если нужно видеть логи GPU
-
-    // 1. Загрузка ресурсов
-    auto texture = load_texture_opengl("lionessy_face.png");
     mat4 projection = mat4::ortho(0, 1920, 1080, 0); 
 
-    // 2. Настройка объектов
-    Transform parent;
-    parent.position = {960, 540}; // Центр экрана
-    parent.scale = {1, 1}; // Сделаем родителя чуть побольше
-
-    Transform child;
-    child.set_parent(&parent);
-    child.position = {200, 0};
-    child.scale = {1, 1};
-
-    // 3. Создаем буферы для линии (динамические)
-    GLuint lineVAO, lineVBO;
-    glGenVertexArrays(1, &lineVAO);
-    glGenBuffers(1, &lineVBO);
-    glBindVertexArray(lineVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, lineVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 4, nullptr, GL_DYNAMIC_DRAW);
-    glEnableVertexAttribArray(0); // Используем location = 0 (aPos в шейдере)
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    Transform* root = create_transforms();
 
     game.on_update = [&]() {
-        parent.rotation += 0.5f * game.fixed_dt; // Медленно вращаем всю систему
-        child.rotation += 2.0f * game.fixed_dt;  // Ребенок крутится сам
+        root->rotation += 0.5f * game.fixed_dt;
     };
 
     game.on_draw = [&]() {
@@ -48,62 +43,26 @@ int main(int, char**) {
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(game.shaderProgram);
-        GLint loc = glGetUniformLocation(game.shaderProgram, "u_mvp");
-        GLint colLoc = glGetUniformLocation(game.shaderProgram, "u_color");
-        GLint texLoc = glGetUniformLocation(game.shaderProgram, "u_texture");
+        root->draw(game.shaderProgram, projection);
+    };
 
-        // --- ШАГ 1: РИСУЕМ РОДИТЕЛЯ ---
-        glBindVertexArray(game.quadVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glUniform1i(texLoc, 0);
+    SDL_Log("Press 'P' to dump the scene graph to the console.");
 
-        // Получаем чистую мировую матрицу (там scale 1,1)
-        mat4 mParent = parent.get_world_matrix(); 
-        
-        // Накладываем размер спрайта ТОЛЬКО для отрисовки
-        mat4 mParentRender = mParent * mat4::scale(parent.sprite_size.x, parent.sprite_size.y, 1.0f);
-        
-        mat4 mvpParent = projection * mParentRender;
-        glUniformMatrix4fv(loc, 1, GL_FALSE, mvpParent.m);
-        glUniform4f(colLoc, 0.4f, 0.6f, 1.0f, 1.0f); 
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+    SDL_Log("--- SCENE GRAPH DUMP ---");
+    root->dump();
+    SDL_Log("------------------------\n\n");
 
-        // --- ШАГ 2: РИСУЕМ РЕБЕНКА ---
-        mat4 mChild = child.get_world_matrix(); 
-        
-        // Ребенок наследует всё от родителя, но размер у него свой
-        mat4 mChildRender = mChild * mat4::scale(child.sprite_size.x, child.sprite_size.y, 1.0f);
-        
-        mat4 mvpChild = projection * mChildRender;
-        glUniformMatrix4fv(loc, 1, GL_FALSE, mvpChild.m);
-        glUniform4f(colLoc, 1.0f, 1.0f, 1.0f, 1.0f); 
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-
-        // --- ШАГ 3: РИСУЕМ ЛИНИЮ СВЯЗИ ---
-        // Линию рисуем между ЦЕНТРАМИ ТРАНСФОРМОВ (им плевать на размер спрайта)
-        float lineData[] = {
-            mParent.m[12], mParent.m[13], 
-            mChild.m[12],  mChild.m[13]
-        };
-
-        glBindVertexArray(lineVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, lineVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(lineData), lineData);
-
-        glUniformMatrix4fv(loc, 1, GL_FALSE, projection.m);
-        glUniform4f(colLoc, 1.0f, 0.2f, 0.2f, 1.0f); 
-        glBindTexture(GL_TEXTURE_2D, 0); 
-        
-        glLineWidth(2.0f); 
-        glDrawArrays(GL_LINES, 0, 2);
+    game.on_event = [&](const SDL_Event& e) {
+        if (e.type == SDL_KEYDOWN) {
+            if (e.key.keysym.sym == SDLK_p) {
+                SDL_Log("--- SCENE GRAPH DUMP ---");
+                root->dump();
+                SDL_Log("------------------------");
+            }
+        }
     };
 
     game.run();
-
-    // Очистка
-    glDeleteVertexArrays(1, &lineVAO);
-    glDeleteBuffers(1, &lineVBO);
 
     return 0;
 }

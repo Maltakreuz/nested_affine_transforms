@@ -18,6 +18,8 @@ namespace lvichki {
 
 bool dbg_draw = false;
 
+GLuint quadVAO, quadVBO;
+
 class Game {
 private:
     SDL_Window*   window = nullptr;
@@ -45,7 +47,7 @@ public:
 
     SDL_GLContext gl_context;
     GLuint shaderProgram;
-    GLuint quadVAO, quadVBO;
+    
 
     const char* vertexShaderSource = R"(
         #version 330 core
@@ -143,7 +145,7 @@ public:
             SDL_Log("TTF_Init error: %s", TTF_GetError());
         }
 
-        window = SDL_CreateWindow("lvichki",
+        window = SDL_CreateWindow("Nested Affine Transforms",
             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
             width, height, 
             SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
